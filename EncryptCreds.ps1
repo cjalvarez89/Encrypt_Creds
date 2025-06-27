@@ -26,7 +26,7 @@ $ErrorActionPreference = "Stop"
 param(
     [Parameter(Mandatory=$true)]
     [ValidateSet("Read", "Admin")]
-    [string]$CredentialType,
+    [string]$CredentialType
 )
 
 function CreateKeys { 
