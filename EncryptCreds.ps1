@@ -34,11 +34,11 @@ function CreateKeys {
     # The key files are generated using a cryptographic random number generator.
     $EncryptionKeyBytes = New-Object Byte[] 32
     [Security.Cryptography.RNGCryptoServiceProvider]::Create().GetBytes($EncryptionKeyBytes)
-    $EncryptionKeyBytes | Out-File $outUser
+    [System.IO.File]::WriteAllBytes($outUser, $EncryptionKeyBytes)
 
     $EncryptionKeyBytes = New-Object Byte[] 32
     [Security.Cryptography.RNGCryptoServiceProvider]::Create().GetBytes($EncryptionKeyBytes)
-    $EncryptionKeyBytes | Out-File $outPass
+    [System.IO.File]::WriteAllBytes($outPass, $EncryptionKeyBytes)
 
 }
 
@@ -61,10 +61,10 @@ function EncryptCredential {
 
     # Encrypt the username and password using the keys stored in the key files.
     # The encrypted strings are saved to files in Base64 format.
-    $EncryptionKeyData = Get-Content $inUser
+    $EncryptionKeyData = [System.IO.File]::ReadAllBytes($inUser)
     $sStringUser | ConvertFrom-SecureString -Key $EncryptionKeyData | Out-File -FilePath $outUser
 
-    $EncryptionKeyData = Get-Content $inPass
+    $EncryptionKeyData = [System.IO.File]::ReadAllBytes($inPass)
     $sStringPass | ConvertFrom-SecureString -Key $EncryptionKeyData | Out-File -FilePath $outPass
     
 }
