@@ -26,34 +26,24 @@ $ErrorActionPreference = "Stop"
 
 function CreateKeys { 
     param (
-        $credential,
-	$pathKey,
-	$keyFileUser,
- 	$keyFilePass
+	$fullPathUserKey,
+ 	$fullPathPassKey
     ) 
     
     try {
-        if (!(Test-Path $pathKey)) {
-            New-Item -Path $pathKey -ItemType Directory -Force | Out-Null
-        }
-
-        # Establish the name of the key files for the username and password.
-        $outUser = "$pathKey\$keyFileUser"
-        $outPass = "$pathKey\$keyFilePass"
-
         # Create the key files for the username and password.
         # The key files are generated using a cryptographic random number generator.
         $EncryptionKeyBytes = New-Object Byte[] 32
         [Security.Cryptography.RNGCryptoServiceProvider]::Create().GetBytes($EncryptionKeyBytes)
-        [System.IO.File]::WriteAllBytes($outUser, $EncryptionKeyBytes)
+        [System.IO.File]::WriteAllBytes($fullPathUserKey, $EncryptionKeyBytes)
 
         $EncryptionKeyBytes = New-Object Byte[] 32
         [Security.Cryptography.RNGCryptoServiceProvider]::Create().GetBytes($EncryptionKeyBytes)
-        [System.IO.File]::WriteAllBytes($outPass, $EncryptionKeyBytes)
+        [System.IO.File]::WriteAllBytes($fullPathPassKey, $EncryptionKeyBytes)
 
         #Prints the Path to the key files.
         Write-Host "`nThe key files to encrypt the Username and Password were created. "
-        Write-Host "$outUser and $outPass" -NoNewline -ForegroundColor Green
+        Write-Host "$fullPathUserKey and $fullPathPassKey" -NoNewline -ForegroundColor Green
     }
     catch {
         Write-Host "Error creating key files: $_" -ForegroundColor Red
@@ -67,33 +57,24 @@ function EncryptCredential {
     param (
         $sStringUser,
         $sStringPass,
-        $credential,
-	$pathKey,
- 	$pathCred,
-	$keyFileUser,
- 	$keyFilePass
+	$fullPathUserKey,
+ 	$fullPathPassKey,
+  	$fullPathUserCred,
+   	$fullPathPassCred
     )
 
     try {
-    	# Establish the name of the key files for the username and password.
-        $inUser = "$pathKey\$keyFileUser"
-        $inPass = "$pathKey\$keyFilePass"
-	
- 	# Establish the name of the encrypted files for the username and password.
-        $outUser = "$pathCred\$credential`User.enc"
-        $outPass = "$pathCred\$credential`Pass.enc"
-
         if (!(Test-Path $inUser) -or !(Test-Path $inPass)) {
             throw "Key files not found. Please generate keys first."
         }
 
         # Encrypt the username and password using the keys stored in the key files.
         # The encrypted strings are saved to files in Base64 format.
-        $EncryptionKeyData = [System.IO.File]::ReadAllBytes($inUser)
-        $sStringUser | ConvertFrom-SecureString -Key $EncryptionKeyData | Out-File -FilePath $outUser
+        $EncryptionKeyData = [System.IO.File]::ReadAllBytes($fullPathUserKey)
+        $sStringUser | ConvertFrom-SecureString -Key $EncryptionKeyData | Out-File -FilePath $fullPathUserCred
 
-        $EncryptionKeyData = [System.IO.File]::ReadAllBytes($inPass)
-        $sStringPass | ConvertFrom-SecureString -Key $EncryptionKeyData | Out-File -FilePath $outPass
+        $EncryptionKeyData = [System.IO.File]::ReadAllBytes($fullPathPassKey)
+        $sStringPass | ConvertFrom-SecureString -Key $EncryptionKeyData | Out-File -FilePath $fullPathPassCred
     }
      catch {
         Write-Host "Error encrypting credentials: $_" -ForegroundColor Red
@@ -108,32 +89,30 @@ Write-Host "`nWhich credentials do you want to encrypt?"
 Write-Host "	1. Read-Only		"
 Write-Host "	2. Administrator	"
 Write-Host -BackgroundColor Black -ForegroundColor Red "	q. Quit	"
-$credential = read-host "`nCredential to encrypt"
+$credentialInput = read-host "`nCredential to encrypt"
 
-switch ($credential) {	#Which credential to encrypt
-	1 {
-		$credential = "Read"
-	}
-	2 {
-		$credential = "Admin"
-	}
-	q {
-		break
-	}
+switch ($credentialInput) {	#Which credential to encrypt
+	1 { $credential = "Read" }
+	2 { $credential = "Admin" }
+	q { exit }
 	default { 
-		Write-Host -BackgroundColor Black -ForegroundColor Red "Invalid Option!"
-		break 
+		Write-Host "Invalid Option!" -BackgroundColor Black -ForegroundColor Red 
+		exit 1 
 	}
 }
 
 # The key files are created in the current directory.
 $pathKey = 'C:\SecureKeys'
-$pathCred = (Get-Location).Path
+if (!(Test-Path $pathKey)) {
+	New-Item -Path $pathKey -ItemType Directory -Force | Out-Null
+}
 $keyFileUser = $credential + "User.key"
 $keyFilePass = $credential + "Pass.key"
+$fullPathUserKey = "$pathKey\$keyFileUser"
+$fullPathPassKey = "$pathKey\$keyFilePass"
 
 # Here we create the key files for the username and password.
-CreateKeys $credential $pathKey $keyFileUser $keyFilePass
+CreateKeys $fullPathUserKey $fullPathPassKey
 
 # Prompt the user for the username and password to encrypt.
 # The password is stored as a secure string to ensure its confidentiality.
@@ -141,14 +120,15 @@ $user = Read-Host -Prompt "`nEnter Username"
 $sStringUser = ConvertTo-SecureString $user -AsPlainText -Force
 $sStringPass = Read-Host -AsSecureString -Prompt "Enter Password"
 
-# The username and password are encrypted using the keys stored in the key files.
-EncryptCredential $sStringUser $sStringPass $credential $pathKey $pathCred $keyFileUser $keyFilePass
-
 # The encrypted files are created with these names.
+$pathCred = (Get-Location).Path
 $encFileUser = $credential + "User.enc"
 $encFilePass = $credential + "Pass.enc"
+$fullPathUserCred = "$pathCred\$encFileUser"
+$fullPathPassCred = "$pathCred\$encFilePass"
+
+# The username and password are encrypted using the keys stored in the key files.
+EncryptCredential $sStringUser $sStringPass $fullPathUserKey $fullPathPassKey $fullPathUserCred $fullPathPassCred
 
 Write-Host "`nThe encrypted files for the Username and Password were created. "
-Write-Host "$pathCred\$encFileUser" -NoNewline -ForegroundColor Green
-Write-Host " and " -NoNewline
-Write-Host "$pathCred\$encFilePass" -ForegroundColor Green
+Write-Host "$fullPathUserCred and $fullPathPassCred" -ForegroundColor Green
