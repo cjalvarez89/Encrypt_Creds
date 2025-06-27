@@ -23,12 +23,13 @@
 # The key is used to encrypt a password and username, which are also saved to files.
 function CreateKeys { 
     param (
-        $credential
+        $credential,
+	$pathKey
     ) 
 
     # Establish the name of the key files for the username and password.
-    $outUser = ".\" + $credential + "User.key"
-    $outPass = ".\" + $credential + "Pass.key"
+    $outUser = "$pathKey\" + $credential + "User.key"
+    $outPass = "$pathKey\" + $credential + "Pass.key"
 
     # Create the key files for the username and password.
     # The key files are generated using a cryptographic random number generator.
@@ -40,6 +41,11 @@ function CreateKeys {
     [Security.Cryptography.RNGCryptoServiceProvider]::Create().GetBytes($EncryptionKeyBytes)
     [System.IO.File]::WriteAllBytes($outPass, $EncryptionKeyBytes)
 
+    #Prints the Path to the key files.
+    Write-Host "`nThe key files to encrypt the Username and Password were created. "
+    Write-Host "$pathKey\$keyFileUser" -NoNewline -ForegroundColor Green
+    Write-Host " and " -NoNewline
+    Write-Host "$pathKey\$keyFilePass" -ForegroundColor Green
 }
 
 # This function encrypts a given string using AES encryption with a specified key.
@@ -48,16 +54,18 @@ function EncryptCredential {
     param (
         $sStringUser,
         $sStringPass,
-        $credential
+        $credential,
+	$pathKey,
+ 	$pathCred
     ) 
 
     # Establish the name of the key files for the username and password.
-    $inUser = ".\" + $credential + "User.key"
-    $inPass = ".\" + $credential + "Pass.key"
+    $inUser = "$pathKey\" + $credential + "User.key"
+    $inPass = "$pathKey\" + $credential + "Pass.key"
 
     # Establish the name of the encrypted files for the username and password.
-    $outUser = ".\" + $credential + "User.enc"
-    $outPass = ".\" + $credential + "Pass.enc"
+    $outUser = "$pathCred\" + $credential + "User.enc"
+    $outPass = "$pathCred\" + $credential + "Pass.enc"
 
     # Encrypt the username and password using the keys stored in the key files.
     # The encrypted strings are saved to files in Base64 format.
@@ -93,18 +101,14 @@ switch ($credential) {	#Which credential to encrypt
 	}
 }
 
-# Here we create the key files for the username and password.
-CreateKeys $credential
-
 # The key files are created in the current directory.
-$path = (Get-Location).Path
+$pathCred = (Get-Location).Path
 $keyFileUser = $credential + "User.key"
+$pathKey = 'C:\SecureKeys'
 $keyFilePass = $credential + "Pass.key"
 
-Write-Host "`nThe key files to encrypt the Username and Password were created. "
-Write-Host "$path\$keyFileUser" -NoNewline -ForegroundColor Green
-Write-Host " and " -NoNewline
-Write-Host "$path\$keyFilePass" -ForegroundColor Green
+# Here we create the key files for the username and password.
+CreateKeys $credential $pathKey
 
 # Prompt the user for the username and password to encrypt.
 # The password is stored as a secure string to ensure its confidentiality.
@@ -113,13 +117,13 @@ $sStringUser = ConvertTo-SecureString $user -AsPlainText -Force
 $sStringPass = Read-Host -AsSecureString -Prompt "Enter Password"
 
 # The username and password are encrypted using the keys stored in the key files.
-EncryptCredential $sStringUser $sStringPass $credential
+EncryptCredential $sStringUser $sStringPass $credential $pathKey $pathCred
 
 # The encrypted files are created with these names.
 $encFileUser = $credential + "User.enc"
 $encFilePass = $credential + "Pass.enc"
 
 Write-Host "`nThe encrypted files for the Username and Password were created. "
-Write-Host "$path\$encFileUser" -NoNewline -ForegroundColor Green
+Write-Host "$pathCred\$encFileUser" -NoNewline -ForegroundColor Green
 Write-Host " and " -NoNewline
-Write-Host "$path\$encFilePass" -ForegroundColor Green
+Write-Host "$pathCred\$encFilePass" -ForegroundColor Green
