@@ -23,6 +23,11 @@
 # The key is used to encrypt a password and username, which are also saved to files.
 
 $ErrorActionPreference = "Stop"
+param(
+    [Parameter(Mandatory=$true)]
+    [ValidateSet("Read", "Admin")]
+    [string]$CredentialType,
+)
 
 function CreateKeys { 
     param (
@@ -92,8 +97,8 @@ Write-Host -BackgroundColor Black -ForegroundColor Red "	q. Quit	"
 $credentialInput = read-host "`nCredential to encrypt"
 
 switch ($credentialInput) {	#Which credential to encrypt
-	1 { $credential = "Read" }
-	2 { $credential = "Admin" }
+	1 { $CredentialType = "Read" }
+	2 { $CredentialType = "Admin" }
 	q { exit }
 	default { 
 		Write-Host "Invalid Option!" -BackgroundColor Black -ForegroundColor Red 
@@ -101,15 +106,22 @@ switch ($credentialInput) {	#Which credential to encrypt
 	}
 }
 
-# The key files are created in the current directory.
+# The key files are created in the C:\SecureKeys directory.
 $pathKey = 'C:\SecureKeys'
 if (!(Test-Path $pathKey)) {
 	New-Item -Path $pathKey -ItemType Directory -Force | Out-Null
 }
-$keyFileUser = $credential + "User.key"
-$keyFilePass = $credential + "Pass.key"
+$keyFileUser = $CredentialType + "User.key"
+$keyFilePass = $CredentialType + "Pass.key"
 $fullPathUserKey = "$pathKey\$keyFileUser"
 $fullPathPassKey = "$pathKey\$keyFilePass"
+
+# The encrypted files are created with the current directory.
+$pathCred = (Get-Location).Path
+$encFileUser = $CredentialType + "User.enc"
+$encFilePass = $CredentialType + "Pass.enc"
+$fullPathUserCred = "$pathCred\$encFileUser"
+$fullPathPassCred = "$pathCred\$encFilePass"
 
 # Here we create the key files for the username and password.
 CreateKeys $fullPathUserKey $fullPathPassKey
@@ -120,15 +132,11 @@ $user = Read-Host -Prompt "`nEnter Username"
 $sStringUser = ConvertTo-SecureString $user -AsPlainText -Force
 $sStringPass = Read-Host -AsSecureString -Prompt "Enter Password"
 
-# The encrypted files are created with these names.
-$pathCred = (Get-Location).Path
-$encFileUser = $credential + "User.enc"
-$encFilePass = $credential + "Pass.enc"
-$fullPathUserCred = "$pathCred\$encFileUser"
-$fullPathPassCred = "$pathCred\$encFilePass"
-
 # The username and password are encrypted using the keys stored in the key files.
 EncryptCredential $sStringUser $sStringPass $fullPathUserKey $fullPathPassKey $fullPathUserCred $fullPathPassCred
 
 Write-Host "`nThe encrypted files for the Username and Password were created. "
 Write-Host "$fullPathUserCred and $fullPathPassCred" -ForegroundColor Green
+
+# Securely clear plaintext password from memory
+[System.GC]::Collect()
